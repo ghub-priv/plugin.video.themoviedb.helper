@@ -79,7 +79,11 @@ class FloppyDataType(DataType):
 
             try:
                 page_limit = int(pagination.get('limit') or FLOPPY_MAX_ITEMS_PER_PAGE)
-                page_offset = int(pagination.get('offset') if pagination.get('offset') is not None else offset)
+                page_offset = int(
+                    pagination.get('offset')
+                    if pagination.get('offset') is not None
+                    else offset
+                )
             except (TypeError, ValueError):
                 return
 
@@ -99,3 +103,14 @@ class FloppyDataType(DataType):
 
 class FloppyDataTypeEpisodesInShows(DataTypeEpisodesInShows, FloppyDataType):
     pass
+
+
+class FloppyDataTypeNull(FloppyDataType):
+    """Successful empty source used for capabilities Floppy does not expose.
+
+    This deliberately clears stale values left by a previously selected
+    provider instead of silently mixing Trakt/MDbList state into Floppy data.
+    """
+
+    def get_response_sync(self, *args, **kwargs):
+        return []

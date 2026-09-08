@@ -28,7 +28,7 @@ SYNC_PROVIDERS = {
         'class_prefix': 'Floppy',
         'api': ('tmdbhelper.lib.api.floppy.api', 'FloppyAPI', 'floppy_api'),
         'authorisation': ('settings', ('floppy_url', 'floppy_token')),
-        'supported_settings': ('sync_source_playback',),
+        'supported_settings': ('sync_source_playback', 'sync_source_watched'),
         'synctype_aliases': {},
     },
 }
@@ -86,6 +86,9 @@ def get_sync_provider_api(provider_name, parent=None):
         return
 
     if parent is not None:
+        provider_apis = getattr(parent, 'provider_apis', None)
+        if isinstance(provider_apis, dict) and provider_name in provider_apis:
+            return provider_apis.get(provider_name)
         try:
             return getattr(parent, api_attr)
         except AttributeError:
@@ -93,3 +96,12 @@ def get_sync_provider_api(provider_name, parent=None):
 
     factory = importmodule(module_name=api_module, import_attr=api_factory)
     return factory()
+
+
+def get_sync_provider_apis(parent=None):
+    provider_apis = {}
+    for provider_name in SYNC_PROVIDERS:
+        provider_api = get_sync_provider_api(provider_name, parent)
+        if provider_api is not None:
+            provider_apis[provider_name] = provider_api
+    return provider_apis

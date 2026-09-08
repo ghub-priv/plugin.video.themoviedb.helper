@@ -53,14 +53,14 @@ class SyncDataSetters:
 class SyncDataGetterAll:
 
     operator = 'OR'
-    query_clauses = ('item_type=?', )  # WHERE {query_clauses}
-    query_values = ('', )  # WHERE {query_clauses}={query_values}
-    clause_keys = ()  # WHERE {query_clauses} AND ({clause_key} IS NOT NULL {operator} {clause_key} IS NOT NULL)
-    additional_keys = ()  # Additional keys to retrieve values for
-    query_value_item_argx = 0  # Query value to use as sync item_type (normally item_type query is first ie 0 index)
+    query_clauses = ('item_type=?', )
+    query_values = ('', )
+    clause_keys = ()
+    additional_keys = ()
+    query_value_item_argx = 0
 
     def __init__(self, instance_syncdata):
-        self.instance_syncdata = instance_syncdata  # The SyncData object sync called from
+        self.instance_syncdata = instance_syncdata
 
     @cached_property
     def item_type(self):
@@ -151,7 +151,7 @@ class SyncDataGetterAllUnHiddenShowsNextEpisode(SyncDataGetterDroppedWatchedUnHi
     clause_keys = ('next_episode_id', )
 
 
-class SyncDataGetterAllUnHiddenEpisodesUpNext(SyncDataGetterDroppedWatchedUnHidden):  # TODO: UNSURE ABOUT THIS ONE
+class SyncDataGetterAllUnHiddenEpisodesUpNext(SyncDataGetterDroppedWatchedUnHidden):
     query_values = ('episode', )
     clause_keys = ('upnext_episode_id', )
 
@@ -163,7 +163,7 @@ class SyncDataGetterAllItems(SyncDataGetterAll):
 
 
 class SyncDataGetterAllUnwatchedItems(SyncDataGetterAll):
-    query_clauses = ('item_type=?', 'last_watched_at IS NULL')  # WHERE {query_clauses}
+    query_clauses = ('item_type=?', 'last_watched_at IS NULL')
 
     @property
     def query_values(self):
@@ -171,7 +171,7 @@ class SyncDataGetterAllUnwatchedItems(SyncDataGetterAll):
 
 
 class SyncDataGetterAllReleasedItems(SyncDataGetterAll):
-    query_clauses = ('item_type=?', 'premiered < date(\'now\')', 'premiered IS NOT NULL')  # WHERE {query_clauses}
+    query_clauses = ('item_type=?', 'premiered < date(\'now\')', 'premiered IS NOT NULL')
 
     @property
     def query_values(self):
@@ -179,7 +179,7 @@ class SyncDataGetterAllReleasedItems(SyncDataGetterAll):
 
 
 class SyncDataGetterAllAnticipatedItems(SyncDataGetterAll):
-    query_clauses = ('item_type=?', '(premiered >= date(\'now\') OR premiered IS NULL)')  # WHERE {query_clauses}
+    query_clauses = ('item_type=?', '(premiered >= date(\'now\') OR premiered IS NULL)')
 
     @property
     def query_values(self):
@@ -232,12 +232,14 @@ class SyncDataGetterUnHiddenShowEpisodesUpNext(SyncDataGetterDroppedWatchedUnHid
 
 
 def SyncDataGetterAllUnHiddenShowsInProgress(instance_syncdata):
-    from tmdbhelper.lib.addon.plugin import get_setting
-    if get_setting('sync_source_watched', 'str') == 'MDbList':
-        from tmdbhelper.lib.sync.mdblist.datasync import MDbListSyncDataGetterAllUnHiddenShowsInProgress
-        return MDbListSyncDataGetterAllUnHiddenShowsInProgress(instance_syncdata)
-    from tmdbhelper.lib.sync.trakt.datasync import TraktSyncDataGetterAllUnHiddenShowsInProgress
-    return TraktSyncDataGetterAllUnHiddenShowsInProgress(instance_syncdata)
+    from tmdbhelper.lib.sync.provider import get_sync_provider_attr
+    getter_class = get_sync_provider_attr(
+        'sync_source_watched',
+        'datasync',
+        'SyncDataGetterAllUnHiddenShowsInProgress',
+        prefixed=True,
+    )
+    return getter_class(instance_syncdata)
 
 
 class SyncDataGetters:
@@ -328,9 +330,26 @@ class SyncDataGetters:
 
 class SyncData(SyncDataGetters):
 
-    def __init__(self, trakt_api=None, mdblist_api=None):
-        self.trakt_api = trakt_api
-        self.mdblist_api = mdblist_api
+    def __init__(
+            self,
+            provider_apis=None,
+            trakt_api=None,
+            mdblist_api=None,
+            floppy_api=None):
+        self.provider_apis = dict(provider_apis or {})
+        if trakt_api is not None:
+            self.provider_apis['Trakt'] = trakt_api
+        if mdblist_api is not None:
+            self.provider_apis['MDbList'] = mdblist_api
+        if floppy_api is not None:
+            self.provider_apis['Floppy'] = floppy_api
+
+        self.trakt_api = self.provider_apis.get('Trakt')
+        self.mdblist_api = self.provider_apis.get('MDbList')
+        self.floppy_api = self.provider_apis.get('Floppy')
+
+    def get_provider_api(self, provider_name):
+        return self.provider_apis.get(provider_name)
 
     @cached_property
     def routes(self):
@@ -340,7 +359,7 @@ class SyncData(SyncDataGetters):
         return {k: v['sync'] for k, v in self.cache.simplecache_columns.items()}
 
     def reset_lastactivities(self):
-        self.window.get_property(LASTACTIVITIES_DATA, clear_property=True)  # Wipe new last activities cache
+        self.window.get_property(LASTACTIVITIES_DATA, clear_property=True)
 
     @cached_property
     def cache(self):
@@ -385,21 +404,8 @@ class SyncData(SyncDataGetters):
 
 
 def SyncDataFactory(parent=None):
-    try:
-        trakt_api = parent.trakt_api
-    except AttributeError:
-        from tmdbhelper.lib.api.trakt.api import TraktAPI
-        trakt_api = TraktAPI()
-
-    try:
-        mdblist_api = parent.mdblist_api
-    except AttributeError:
-        from tmdbhelper.lib.api.mdblist.api import MDbListAPI
-        mdblist_api = MDbListAPI()
-
-    if not trakt_api and not mdblist_api:
+    from tmdbhelper.lib.sync.provider import get_sync_provider_apis
+    provider_apis = get_sync_provider_apis(parent)
+    if not provider_apis:
         return
-    # if not trakt_api.is_authorized:  # TODO: Allow MDBLIST ONLY  # AUTHORIZED CHECK MDBLIST
-    #     return
-
-    return SyncData(trakt_api=trakt_api, mdblist_api=mdblist_api)
+    return SyncData(provider_apis=provider_apis)

@@ -19,6 +19,8 @@ def normalise_floppy_url(server_url):
 
     if parsed.scheme not in ('http', 'https') or not parsed.hostname:
         raise ValueError('Floppy server URL must use http:// or https:// and include a host')
+    if any(char.isspace() for char in parsed.netloc):
+        raise ValueError('Floppy server URL contains invalid whitespace')
     if parsed.username is not None or parsed.password is not None:
         raise ValueError('Floppy server URL must not contain embedded credentials')
     if parsed.query or parsed.fragment:
@@ -62,6 +64,16 @@ class Floppy(NoCacheRequestAPI):
             'Accept': 'application/json',
             'Content-Type': 'application/json',
         }
+
+    @property
+    def session(self):
+        # Floppy is configured by the user and may point at a LAN service.
+        # Never follow redirects while carrying its bearer token. This avoids
+        # forwarding credentials to an unexpected redirect target and also
+        # makes endpoint identity explicit rather than silently changing it.
+        session = super(Floppy, self).session
+        session.max_redirects = 0
+        return session
 
     def get_simple_api_request(self, request=None, postdata=None, headers=None, method=None):
         # Inject credentials immediately before transport. RequestAPI's error
