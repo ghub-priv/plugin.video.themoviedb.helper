@@ -6,8 +6,15 @@ from tmdbhelper.lib.api.request import NoCacheRequestAPI
 MAX_TOKEN_LENGTH = 4096
 
 
+def _has_control_characters(value):
+    return any(ord(char) < 32 or ord(char) == 127 for char in value)
+
+
 def normalise_floppy_url(server_url):
     server_url = (server_url or '').strip()
+    if not server_url or _has_control_characters(server_url):
+        raise ValueError('Floppy server URL is invalid')
+
     parsed = urlsplit(server_url)
 
     if parsed.scheme not in ('http', 'https') or not parsed.hostname:
@@ -16,6 +23,11 @@ def normalise_floppy_url(server_url):
         raise ValueError('Floppy server URL must not contain embedded credentials')
     if parsed.query or parsed.fragment:
         raise ValueError('Floppy server URL must not contain a query string or fragment')
+
+    try:
+        parsed.port
+    except ValueError as exc:
+        raise ValueError('Floppy server URL contains an invalid port') from exc
 
     path = parsed.path.rstrip('/')
     if not path.endswith('/api/v1'):
@@ -30,7 +42,7 @@ def validate_floppy_token(token):
         raise ValueError('Floppy integration token is required')
     if len(token) > MAX_TOKEN_LENGTH:
         raise ValueError('Floppy integration token is unexpectedly long')
-    if '\r' in token or '\n' in token:
+    if _has_control_characters(token):
         raise ValueError('Floppy integration token contains invalid control characters')
     return token
 

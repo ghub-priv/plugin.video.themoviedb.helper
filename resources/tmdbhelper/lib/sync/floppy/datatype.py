@@ -3,6 +3,7 @@ from tmdbhelper.lib.sync.datatype import DataType, DataTypeEpisodesInShows
 
 
 FLOPPY_MAX_ITEMS_PER_PAGE = 200
+FLOPPY_MAX_PAGES = 500
 FLOPPY_SYNC_EXPIRY = 300
 
 
@@ -44,7 +45,8 @@ class FloppyDataType(DataType):
 
         offset = 0
         results = []
-        while True:
+
+        for _ in range(FLOPPY_MAX_PAGES):
             response = self.floppy_api.get_response(
                 *args,
                 limit=FLOPPY_MAX_ITEMS_PER_PAGE,
@@ -59,23 +61,40 @@ class FloppyDataType(DataType):
             except (AttributeError, ValueError):
                 return
 
+            if not isinstance(payload, dict):
+                return
+
             page = payload.get('results')
             if not isinstance(page, list):
+                return
+            if len(page) > FLOPPY_MAX_ITEMS_PER_PAGE:
                 return
             results.extend(page)
 
             pagination = payload.get('pagination') or {}
+            if not isinstance(pagination, dict):
+                return
             if not pagination.get('next'):
-                break
+                return results
 
-            page_limit = pagination.get('limit') or FLOPPY_MAX_ITEMS_PER_PAGE
-            page_offset = pagination.get('offset') or offset
+            try:
+                page_limit = int(pagination.get('limit') or FLOPPY_MAX_ITEMS_PER_PAGE)
+                page_offset = int(pagination.get('offset') if pagination.get('offset') is not None else offset)
+            except (TypeError, ValueError):
+                return
+
+            if page_limit <= 0 or page_limit > FLOPPY_MAX_ITEMS_PER_PAGE:
+                return
+
             next_offset = page_offset + page_limit
             if next_offset <= offset:
-                break
+                return
             offset = next_offset
 
-        return results
+        # A response requiring more than FLOPPY_MAX_PAGES is treated as
+        # malformed/unsafe. Returning None prevents sync_data() from clearing
+        # the existing local cache and replacing it with an incomplete result.
+        return
 
 
 class FloppyDataTypeEpisodesInShows(DataTypeEpisodesInShows, FloppyDataType):

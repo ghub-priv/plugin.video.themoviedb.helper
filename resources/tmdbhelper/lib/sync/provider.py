@@ -28,6 +28,7 @@ SYNC_PROVIDERS = {
         'class_prefix': 'Floppy',
         'api': ('tmdbhelper.lib.api.floppy.api', 'FloppyAPI', 'floppy_api'),
         'authorisation': ('settings', ('floppy_url', 'floppy_token')),
+        'supported_settings': ('sync_source_playback',),
         'synctype_aliases': {},
     },
 }
@@ -35,7 +36,15 @@ SYNC_PROVIDERS = {
 
 def get_sync_provider(setting_id):
     provider_name = get_setting(setting_id, 'str')
-    return provider_name if provider_name in SYNC_PROVIDERS else DEFAULT_SYNC_PROVIDER
+    provider = SYNC_PROVIDERS.get(provider_name)
+    if not provider:
+        return DEFAULT_SYNC_PROVIDER
+
+    supported_settings = provider.get('supported_settings')
+    if supported_settings is not None and setting_id not in supported_settings:
+        return DEFAULT_SYNC_PROVIDER
+
+    return provider_name
 
 
 def get_sync_provider_attr(setting_id, module_name, import_attr, prefixed=False):
@@ -66,7 +75,7 @@ def is_sync_provider_authorised(provider_name):
     if auth_type == 'setting':
         return bool(get_setting(auth_id, 'str'))
     if auth_type == 'settings':
-        return all(get_setting(setting_id, 'str') for setting_id in auth_id)
+        return all((get_setting(setting_id, 'str') or '').strip() for setting_id in auth_id)
     return False
 
 
