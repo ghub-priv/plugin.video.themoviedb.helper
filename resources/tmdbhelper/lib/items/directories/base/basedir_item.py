@@ -65,10 +65,5 @@ class BaseDirItemAuthorised(BaseDirItem):
 
     @property
     def enabled(self):
-        if self.authorisation_type == 'Trakt':
-            from jurialmunkey.window import get_property
-            return bool(get_property('TraktIsAuth'))
-        if self.authorisation_type == 'MDbList':
-            from tmdbhelper.lib.addon.plugin import get_setting
-            return bool(get_setting('mdblist_apikey', 'str'))
-        return False
+        from tmdbhelper.lib.sync.provider import is_sync_provider_authorised
+        return is_sync_provider_authorised(self.authorisation_type)

@@ -1,24 +1,20 @@
-from tmdbhelper.lib.addon.plugin import get_setting
 import tmdbhelper.lib.sync.trakt.synctype as trakt_synctype
-import tmdbhelper.lib.sync.mdblist.synctype as mdblist_synctype
+from tmdbhelper.lib.sync.provider import get_sync_provider_attr
 
 
 def SyncHiddenProgressWatched():
-    if get_setting('sync_source_watched', 'str') == 'MDbList':
-        return mdblist_synctype.SyncHiddenProgressWatched
-    return trakt_synctype.SyncHiddenProgressWatched
+    return get_sync_provider_attr(
+        'sync_source_watched', 'synctype', 'SyncHiddenProgressWatched')
 
 
 def SyncHiddenProgressCollected():
-    if get_setting('sync_source_collection', 'str') == 'MDbList':
-        return mdblist_synctype.SyncHiddenProgressCollected
-    return trakt_synctype.SyncHiddenProgressCollected
+    return get_sync_provider_attr(
+        'sync_source_collection', 'synctype', 'SyncHiddenProgressCollected')
 
 
 def SyncHiddenCalendar():
-    if get_setting('sync_source_watched', 'str') == 'MDbList':
-        return mdblist_synctype.SyncHiddenCalendar
-    return trakt_synctype.SyncHiddenCalendar
+    return get_sync_provider_attr(
+        'sync_source_watched', 'synctype', 'SyncHiddenCalendar')
 
 
 def SyncHiddenDropped():
@@ -34,42 +30,35 @@ def SyncFavorites():
 
 
 def SyncAllNextEpisodes():
-    if get_setting('sync_source_collection', 'str') == 'MDbList':
-        return mdblist_synctype.SyncAllNextEpisodes
-    return trakt_synctype.SyncAllNextEpisodes
+    return get_sync_provider_attr(
+        'sync_source_collection', 'synctype', 'SyncAllNextEpisodes')
 
 
 def SyncWatchlist():
-    if get_setting('sync_source_watchlist', 'str') == 'MDbList':
-        return mdblist_synctype.SyncWatchlist
-    return trakt_synctype.SyncWatchlist
+    return get_sync_provider_attr(
+        'sync_source_watchlist', 'synctype', 'SyncWatchlist')
 
 
 def SyncCollection():
-    if get_setting('sync_source_collection', 'str') == 'MDbList':
-        return mdblist_synctype.SyncCollection
-    return trakt_synctype.SyncCollection
+    return get_sync_provider_attr(
+        'sync_source_collection', 'synctype', 'SyncCollection')
 
 
 def SyncPlayback():
-    if get_setting('sync_source_playback', 'str') == 'MDbList':
-        return mdblist_synctype.SyncPlayback
-    return trakt_synctype.SyncPlayback
+    return get_sync_provider_attr(
+        'sync_source_playback', 'synctype', 'SyncPlayback')
 
 
 def SyncNextEpisodes():
-    if get_setting('sync_source_watched', 'str') == 'MDbList':
-        return mdblist_synctype.SyncNextEpisodes
-    return trakt_synctype.SyncNextEpisodes
+    return get_sync_provider_attr(
+        'sync_source_watched', 'synctype', 'SyncNextEpisodes')
 
 
 def SyncWatched():
-    if get_setting('sync_source_watched', 'str') == 'MDbList':
-        return mdblist_synctype.SyncWatched
-    return trakt_synctype.SyncWatched
+    return get_sync_provider_attr(
+        'sync_source_watched', 'synctype', 'SyncWatched')
 
 
 def SyncAiredEpisodes():
-    if get_setting('sync_source_watched', 'str') == 'MDbList':
-        return SyncNextEpisodes()  # AIRED/WATCHED counts in next episodes for MDbList
-    return SyncWatched()
+    return get_sync_provider_attr(
+        'sync_source_watched', 'synctype', 'SyncAiredEpisodes')
