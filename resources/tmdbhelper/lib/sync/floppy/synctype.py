@@ -53,7 +53,18 @@ class SyncAiredEpisodes(SyncWatched):
 
 
 class SyncNextEpisodes(FloppyDataType):
-    keys = ('next_episode_id', 'next_episode_aired_at', )
+    # The hidden fields belong to the selected watched provider. Floppy does not
+    # expose Trakt-style progress/calendar hiding, so clear stale values here at
+    # the same time as next-episode data. This prevents an old provider's hidden
+    # flags from suppressing otherwise valid Floppy results before history has
+    # happened to sync in the current Kodi session.
+    keys = (
+        'next_episode_id',
+        'next_episode_aired_at',
+        'progress_watched_hidden_at',
+        'calendar_hidden_at',
+        'dropped_hidden_at',
+    )
     last_activities_key = 'watched_at'
     method = 'media/tv'
 
