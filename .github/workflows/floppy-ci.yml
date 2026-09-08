@@ -1,0 +1,65 @@
+name: Floppy Fast CI
+
+on:
+  push:
+    branches:
+      - feature/floppy-sync-provider
+    paths:
+      - ".github/workflows/floppy-ci.yml"
+      - "tests/floppy_ci/**"
+      - "addon.xml"
+      - "resources/settings.xml"
+      - "resources/language/resource.language.en_gb/strings.po"
+      - "resources/tmdbhelper/lib/api/floppy/**"
+      - "resources/tmdbhelper/lib/sync/**"
+      - "resources/tmdbhelper/lib/items/directories/base/basedir_item.py"
+  pull_request:
+    branches:
+      - nexus
+    paths:
+      - ".github/workflows/floppy-ci.yml"
+      - "tests/floppy_ci/**"
+      - "addon.xml"
+      - "resources/settings.xml"
+      - "resources/language/resource.language.en_gb/strings.po"
+      - "resources/tmdbhelper/lib/api/floppy/**"
+      - "resources/tmdbhelper/lib/sync/**"
+      - "resources/tmdbhelper/lib/items/directories/base/basedir_item.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: floppy-fast-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fast-contract:
+    name: Fast provider contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Show Python runtime
+        run: python3 --version
+
+      - name: Compile changed provider surface
+        run: |
+          python3 -m compileall -q \
+            resources/tmdbhelper/lib/api/floppy \
+            resources/tmdbhelper/lib/sync/floppy \
+            resources/tmdbhelper/lib/sync/provider.py \
+            resources/tmdbhelper/lib/sync/datasync.py \
+            resources/tmdbhelper/lib/sync/synctype.py \
+            resources/tmdbhelper/lib/sync/mixins.py \
+            resources/tmdbhelper/lib/items/directories/base/basedir_item.py
+
+      - name: Run Floppy contract and security tests
+        run: python3 -m unittest discover -s tests/floppy_ci -p "test_*.py" -v
