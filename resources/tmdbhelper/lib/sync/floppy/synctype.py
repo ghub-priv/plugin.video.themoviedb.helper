@@ -13,3 +13,21 @@ class SyncPlayback(FloppyDataTypeEpisodesInShows):
             'media_type': 'episode' if self.item_type == 'show' else 'movie',
             'completed': 'false',
         }
+
+
+class SyncWatched(FloppyDataTypeEpisodesInShows):
+    keys = ('plays', 'last_watched_at', )
+    last_activities_key = 'watched_at'
+    method = 'history'
+
+    @property
+    def syncitem_class(self):
+        from tmdbhelper.lib.sync.floppy.itemdata import FloppyHistorySyncItem
+        return FloppyHistorySyncItem
+
+    @property
+    def sync_kwgs(self):
+        return {
+            'flat': 'true',
+            'media_type': 'episode' if self.item_type == 'show' else 'movie',
+        }

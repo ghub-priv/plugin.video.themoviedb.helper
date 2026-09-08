@@ -1,11 +1,45 @@
+from urllib.parse import urlsplit, urlunsplit
+
 from tmdbhelper.lib.api.request import NoCacheRequestAPI
+
+
+MAX_TOKEN_LENGTH = 4096
+
+
+def normalise_floppy_url(server_url):
+    server_url = (server_url or '').strip()
+    parsed = urlsplit(server_url)
+
+    if parsed.scheme not in ('http', 'https') or not parsed.hostname:
+        raise ValueError('Floppy server URL must use http:// or https:// and include a host')
+    if parsed.username is not None or parsed.password is not None:
+        raise ValueError('Floppy server URL must not contain embedded credentials')
+    if parsed.query or parsed.fragment:
+        raise ValueError('Floppy server URL must not contain a query string or fragment')
+
+    path = parsed.path.rstrip('/')
+    if not path.endswith('/api/v1'):
+        path = f'{path}/api/v1' if path else '/api/v1'
+
+    return urlunsplit((parsed.scheme, parsed.netloc, path, '', ''))
+
+
+def validate_floppy_token(token):
+    token = (token or '').strip()
+    if not token:
+        raise ValueError('Floppy integration token is required')
+    if len(token) > MAX_TOKEN_LENGTH:
+        raise ValueError('Floppy integration token is unexpectedly long')
+    if '\r' in token or '\n' in token:
+        raise ValueError('Floppy integration token contains invalid control characters')
+    return token
 
 
 class Floppy(NoCacheRequestAPI):
 
     def __init__(self, server_url, token):
-        server_url = server_url.rstrip('/')
-        api_url = server_url if server_url.endswith('/api/v1') else f'{server_url}/api/v1'
+        api_url = normalise_floppy_url(server_url)
+        token = validate_floppy_token(token)
         super(Floppy, self).__init__(
             req_api_url=api_url,
             req_api_name='Floppy',
@@ -18,6 +52,9 @@ class Floppy(NoCacheRequestAPI):
         }
 
     def get_simple_api_request(self, request=None, postdata=None, headers=None, method=None):
+        # Inject credentials immediately before transport. RequestAPI's error
+        # logger therefore never receives the bearer token in its `headers`
+        # argument, preventing accidental credential disclosure in kodi.log.
         request_headers = dict(self._auth_headers)
         request_headers.update(headers or {})
         return super(Floppy, self).get_simple_api_request(
@@ -39,8 +76,11 @@ class Floppy(NoCacheRequestAPI):
 
 def FloppyAPI():
     from tmdbhelper.lib.addon.plugin import get_setting
-    server_url = get_setting('floppy_url', 'str').strip()
-    token = get_setting('floppy_token', 'str').strip()
-    if server_url and token:
+    server_url = get_setting('floppy_url', 'str')
+    token = get_setting('floppy_token', 'str')
+    if not server_url or not token:
+        return
+    try:
         return Floppy(server_url, token)
-    return
+    except ValueError:
+        return
